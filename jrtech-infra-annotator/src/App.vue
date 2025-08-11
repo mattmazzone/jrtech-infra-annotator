@@ -29,10 +29,21 @@ import {
   ArrowRight,
   Maximize,
   ImagePlus,
-  Mountain,
+  MousePointer2,
 } from 'lucide-vue-next'
+import { Icon } from '@iconify/vue'
+import { useColorMode } from '@vueuse/core'
 
-type Tool = 'perimeter' | 'scale' | 'zone' | 'antenna' | 'measure' | 'select'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+
+// Pass { disableTransition: false } to enable transitions
+const mode = useColorMode()
+type Tool = 'perimeter' | 'scale' | 'zone' | 'antenna' | 'measure' | 'select' | 'multiselect'
 
 const canvasRef = ref<HTMLCanvasElement | null>(null)
 const ctx = ref<CanvasRenderingContext2D | null>(null)
@@ -81,6 +92,14 @@ const measures = reactive<
   { id: number; start: { x: number; y: number }; end: { x: number; y: number } }[]
 >([])
 
+// Multi-select state
+const selectedAntennas = reactive<Set<number>>(new Set())
+const selectionBox = reactive<{
+  start?: { x: number; y: number }
+  end?: { x: number; y: number }
+  active: boolean
+}>({ active: false })
+
 const metersPerPx = computed(() => {
   if (scaleLine.start && scaleLine.end && scaleLine.meters && scaleLine.meters > 0) {
     const dx = scaleLine.end.x - scaleLine.start.x
@@ -101,6 +120,11 @@ let isDrawing = false
 let tempStart: { x: number; y: number } | null = null
 let tempEnd: { x: number; y: number } | null = null
 let draggingAntenna: { idx: number; offsetX: number; offsetY: number } | null = null
+let draggingSelectedGroup: {
+  startX: number
+  startY: number
+  antennaPositions: { id: number; x: number; y: number }[]
+} | null = null
 let perimeterPreview: { x: number; y: number } | null = null
 let highlightFirstPoint = false
 
@@ -132,6 +156,46 @@ function getCanvasCoords(e: PointerEvent | MouseEvent) {
     x: (('clientX' in e ? e.clientX : (e as any).x) - rect.left) * scaleX,
     y: (('clientY' in e ? e.clientY : (e as any).y) - rect.top) * scaleY,
   }
+}
+
+// Multi-select helper functions
+function isPointInRect(
+  px: number,
+  py: number,
+  rectStart: { x: number; y: number },
+  rectEnd: { x: number; y: number },
+) {
+  const minX = Math.min(rectStart.x, rectEnd.x)
+  const maxX = Math.max(rectStart.x, rectEnd.x)
+  const minY = Math.min(rectStart.y, rectEnd.y)
+  const maxY = Math.max(rectStart.y, rectEnd.y)
+  return px >= minX && px <= maxX && py >= minY && py <= maxY
+}
+
+function selectAntennasInRect(
+  rectStart: { x: number; y: number },
+  rectEnd: { x: number; y: number },
+) {
+  selectedAntennas.clear()
+  antennas.forEach((antenna) => {
+    if (isPointInRect(antenna.x, antenna.y, rectStart, rectEnd)) {
+      selectedAntennas.add(antenna.id)
+    }
+  })
+}
+
+function clearSelection() {
+  selectedAntennas.clear()
+}
+
+function deleteSelectedAntennas() {
+  for (let i = antennas.length - 1; i >= 0; i--) {
+    if (selectedAntennas.has(antennas[i].id)) {
+      antennas.splice(i, 1)
+    }
+  }
+  clearSelection()
+  draw()
 }
 
 // ---- Interaction handlers (pointer events) ----
@@ -176,6 +240,25 @@ function onPointerDown(e: PointerEvent) {
     if (idx != null) {
       draggingAntenna = { idx, offsetX: x - antennas[idx].x, offsetY: y - antennas[idx].y }
     }
+  } else if (currentTool.value === 'multiselect') {
+    // Check if clicking on a selected antenna to drag the group
+    const clickedAntennaIdx = hitTestAntenna(x, y)
+    if (clickedAntennaIdx !== null && selectedAntennas.has(antennas[clickedAntennaIdx].id)) {
+      // Start dragging the selected group
+      draggingSelectedGroup = {
+        startX: x,
+        startY: y,
+        antennaPositions: antennas
+          .filter((a) => selectedAntennas.has(a.id))
+          .map((a) => ({ id: a.id, x: a.x, y: a.y })),
+      }
+    } else {
+      // Start drawing selection box
+      selectionBox.start = { x, y }
+      selectionBox.end = { x, y }
+      selectionBox.active = true
+      clearSelection()
+    }
   }
 }
 
@@ -202,6 +285,29 @@ function onPointerMove(e: PointerEvent) {
     a.x = x - draggingAntenna.offsetX
     a.y = y - draggingAntenna.offsetY
     draw()
+  } else if (currentTool.value === 'multiselect') {
+    if (selectionBox.active && selectionBox.start) {
+      // Update selection box
+      selectionBox.end = { x, y }
+      draw()
+    } else if (draggingSelectedGroup) {
+      // Move all selected antennas
+      const deltaX = x - draggingSelectedGroup.startX
+      const deltaY = y - draggingSelectedGroup.startY
+
+      antennas.forEach((antenna) => {
+        if (selectedAntennas.has(antenna.id)) {
+          const originalPos = draggingSelectedGroup!.antennaPositions.find(
+            (p) => p.id === antenna.id,
+          )
+          if (originalPos) {
+            antenna.x = originalPos.x + deltaX
+            antenna.y = originalPos.y + deltaY
+          }
+        }
+      })
+      draw()
+    }
   }
 }
 
@@ -235,6 +341,17 @@ function onPointerUp(e: PointerEvent) {
     } else if (currentTool.value === 'measure') {
       measures.push({ id: measureIdCounter++, start: { ...tempStart }, end: { ...tempEnd } })
     }
+  } else if (
+    currentTool.value === 'multiselect' &&
+    selectionBox.active &&
+    selectionBox.start &&
+    selectionBox.end
+  ) {
+    // Complete selection
+    selectAntennasInRect(selectionBox.start, selectionBox.end)
+    selectionBox.active = false
+    selectionBox.start = undefined
+    selectionBox.end = undefined
   }
 
   // reset temp state
@@ -242,6 +359,7 @@ function onPointerUp(e: PointerEvent) {
   tempStart = null
   tempEnd = null
   draggingAntenna = null
+  draggingSelectedGroup = null
   perimeterPreview = null
   highlightFirstPoint = false
   draw()
@@ -252,6 +370,20 @@ function onDblClick() {
   if (currentTool.value === 'perimeter' && perimeterPoints.length >= 3) {
     perimeterClosed.value = true
     draw()
+  }
+}
+
+// Keyboard shortcuts
+function onKeyDown(e: KeyboardEvent) {
+  if (currentTool.value === 'multiselect' && selectedAntennas.size > 0) {
+    if (e.key === 'Delete' || e.key === 'Backspace') {
+      e.preventDefault()
+      deleteSelectedAntennas()
+    } else if (e.key === 'Escape') {
+      e.preventDefault()
+      clearSelection()
+      draw()
+    }
   }
 }
 
@@ -527,7 +659,6 @@ function exportJSON() {
 }
 
 // ---- Drawing ----
-// This function also requires no changes. Omitted for brevity.
 function draw() {
   console.log('Drawing...')
   if (!ctx.value || !canvasRef.value) return
@@ -697,16 +828,56 @@ function draw() {
     ctx.value.save()
     ctx.value.beginPath()
     ctx.value.arc(a.x, a.y, 5, 0, Math.PI * 2)
-    ctx.value.fillStyle = '#f97316'
+
+    // Highlight selected antennas
+    const isSelected = selectedAntennas.has(a.id)
+    ctx.value.fillStyle = isSelected ? '#facc15' : '#f97316'
     ctx.value.fill()
-    ctx.value.lineWidth = 1
-    ctx.value.strokeStyle = '#7c2d12'
+    ctx.value.lineWidth = isSelected ? 3 : 1
+    ctx.value.strokeStyle = isSelected ? '#eab308' : '#7c2d12'
     ctx.value.stroke()
+
+    // Add selection ring for better visibility
+    if (isSelected) {
+      ctx.value.beginPath()
+      ctx.value.arc(a.x, a.y, 8, 0, Math.PI * 2)
+      ctx.value.lineWidth = 2
+      ctx.value.strokeStyle = '#eab308'
+      ctx.value.stroke()
+    }
+
     ctx.value.fillStyle = '#111827'
     ctx.value.font = '12px sans-serif'
     if (a.label) ctx.value.fillText(a.label, a.x + 8, a.y + 4)
     ctx.value.restore()
   })
+
+  // Selection box for multi-select
+  if (
+    currentTool.value === 'multiselect' &&
+    selectionBox.active &&
+    selectionBox.start &&
+    selectionBox.end
+  ) {
+    ctx.value.save()
+    const startX = selectionBox.start.x
+    const startY = selectionBox.start.y
+    const endX = selectionBox.end.x
+    const endY = selectionBox.end.y
+    const w = endX - startX
+    const h = endY - startY
+
+    // Selection box fill
+    ctx.value.fillStyle = 'rgba(59, 130, 246, 0.1)'
+    ctx.value.fillRect(startX, startY, w, h)
+
+    // Selection box border
+    ctx.value.strokeStyle = '#3b82f6'
+    ctx.value.lineWidth = 2
+    ctx.value.setLineDash([5, 5])
+    ctx.value.strokeRect(startX, startY, w, h)
+    ctx.value.restore()
+  }
 
   // finalized measures
   measures.forEach((m) => {
@@ -747,12 +918,20 @@ function draw() {
     ctx.value.restore()
   }
 }
+
 const tools = [
   {
     value: 'select',
     label: 'Select / Move',
     icon: MousePointer,
-    tooltip: 'Select and move antennas.',
+    tooltip: 'Select and move individual antennas.',
+  },
+  {
+    value: 'multiselect',
+    label: 'Multi-Select',
+    icon: MousePointer2,
+    tooltip:
+      'Draw a rectangle to select multiple antennas. Drag to move them together. Delete or Escape to clear selection.',
   },
   {
     value: 'perimeter',
@@ -793,6 +972,7 @@ onMounted(() => {
   canvasRef.value.addEventListener('pointermove', onPointerMove)
   canvasRef.value.addEventListener('pointerup', onPointerUp)
   canvasRef.value.addEventListener('dblclick', onDblClick)
+  document.addEventListener('keydown', onKeyDown)
 })
 
 onBeforeUnmount(() => {
@@ -801,6 +981,7 @@ onBeforeUnmount(() => {
   canvasRef.value.removeEventListener('pointermove', onPointerMove)
   canvasRef.value.removeEventListener('pointerup', onPointerUp)
   canvasRef.value.removeEventListener('dblclick', onDblClick)
+  document.removeEventListener('keydown', onKeyDown)
 })
 </script>
 
@@ -862,6 +1043,26 @@ onBeforeUnmount(() => {
             <Button @click="exportJSON" variant="outline" class="justify-start">
               <Download class="w-4 h-4 mr-2" /> Export as JSON
             </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger as-child>
+                <Button variant="outline">
+                  <Icon
+                    icon="radix-icons:moon"
+                    class="h-[1.2rem] w-[1.2rem] rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0"
+                  />
+                  <Icon
+                    icon="radix-icons:sun"
+                    class="absolute h-[1.2rem] w-[1.2rem] rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100"
+                  />
+                  <span class="sr-only">Toggle theme</span>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem @click="mode = 'light'"> Light </DropdownMenuItem>
+                <DropdownMenuItem @click="mode = 'dark'"> Dark </DropdownMenuItem>
+                <DropdownMenuItem @click="mode = 'auto'"> System </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
       </aside>
@@ -903,6 +1104,39 @@ onBeforeUnmount(() => {
         <div class="flex h-16 items-center border-b px-2">
           <h2 class="text-xl font-semibold">Properties</h2>
         </div>
+
+        <!-- Multi-select status -->
+        <Card v-if="currentTool === 'multiselect' && selectedAntennas.size > 0">
+          <CardHeader>
+            <CardTitle>Selected Antennas</CardTitle>
+            <CardDescription>
+              {{ selectedAntennas.size }} antenna{{ selectedAntennas.size > 1 ? 's' : '' }} selected
+            </CardDescription>
+          </CardHeader>
+          <CardContent class="space-y-2">
+            <div class="flex gap-2">
+              <Button
+                @click="
+                  () => {
+                    clearSelection()
+                    draw()
+                  }
+                "
+                variant="outline"
+                size="sm"
+              >
+                Clear Selection
+              </Button>
+              <Button @click="deleteSelectedAntennas()" variant="destructive" size="sm">
+                <Trash2 class="w-4 h-4 mr-2" />
+                Delete Selected
+              </Button>
+            </div>
+            <p class="text-xs text-muted-foreground">
+              Use Delete key or drag to move selected antennas together.
+            </p>
+          </CardContent>
+        </Card>
 
         <Card v-if="scaleLine.start && scaleLine.end">
           <CardHeader>
@@ -1024,9 +1258,15 @@ onBeforeUnmount(() => {
               <span v-if="a.zoneId" class="text-xs text-muted-foreground whitespace-nowrap">
                 In {{ zones.find((z) => z.id === a.zoneId)?.label || '?' }}
               </span>
+              <div
+                v-if="selectedAntennas.has(a.id)"
+                class="w-2 h-2 bg-yellow-500 rounded-full"
+                title="Selected"
+              ></div>
               <Button
                 @click="
                   () => {
+                    selectedAntennas.delete(a.id)
                     antennas.splice(i, 1)
                     draw()
                   }
