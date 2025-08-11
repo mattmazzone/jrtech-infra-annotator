@@ -1,65 +1,76 @@
+import type { Component } from 'vue'
 import {
+  Antenna,
+  Upload,
+  Download,
+  Trash2,
+  ArrowLeft,
+  ArrowRight,
+  ImagePlus,
+  MousePointer,
   Square,
   Ruler,
-  BoxSelect,
-  Antenna,
-  MousePointer,
-  Maximize,
-  MousePointer2,
+  MapPin,
+  Target,
 } from 'lucide-vue-next'
+import type { Tool } from '@/types'
 
-// Zone colors that alternate
 export const zoneColors = [
-  { stroke: '#10b981', fill: 'rgba(16,185,129,0.08)', text: '#065f46' }, // green
-  { stroke: '#3b82f6', fill: 'rgba(59,130,246,0.08)', text: '#1e3a8a' }, // blue
-  { stroke: '#f59e0b', fill: 'rgba(245,158,11,0.08)', text: '#92400e' }, // amber
-  { stroke: '#ef4444', fill: 'rgba(239,68,68,0.08)', text: '#991b1b' }, // red
-  { stroke: '#8b5cf6', fill: 'rgba(139,92,246,0.08)', text: '#5b21b6' }, // violet
-  { stroke: '#06b6d4', fill: 'rgba(6,182,212,0.08)', text: '#0e7490' }, // cyan
+  { fill: 'rgba(34,197,94,0.2)', stroke: '#22c55e', text: '#15803d' },
+  { fill: 'rgba(59,130,246,0.2)', stroke: '#3b82f6', text: '#1d4ed8' },
+  { fill: 'rgba(168,85,247,0.2)', stroke: '#a855f7', text: '#7c3aed' },
+  { fill: 'rgba(234,179,8,0.2)', stroke: '#eab308', text: '#a16207' },
+  { fill: 'rgba(239,68,68,0.2)', stroke: '#ef4444', text: '#dc2626' },
 ]
 
-export const tools = [
-  {
-    value: 'select',
-    label: 'Select / Move',
-    icon: MousePointer,
-    tooltip: 'Select and move individual antennas.',
-  },
-  {
-    value: 'multiselect',
-    label: 'Multi-Select',
-    icon: MousePointer2,
-    tooltip:
-      'Draw a rectangle to select multiple antennas. Drag to move them together. Delete or Escape to clear selection.',
-  },
+export interface ToolConfig {
+  value: Tool
+  label: string
+  tooltip: string
+  icon: Component
+}
+
+export const tools: ToolConfig[] = [
   {
     value: 'perimeter',
     label: 'Perimeter',
-    icon: Square,
-    tooltip: 'Draw the outer boundary of the area.',
+    tooltip: 'Draw the site boundary',
+    icon: Target,
   },
   {
     value: 'scale',
     label: 'Scale',
+    tooltip: 'Set map scale',
     icon: Ruler,
-    tooltip: 'Draw a line to set the scale in meters.',
   },
   {
     value: 'zone',
     label: 'Zone',
-    icon: BoxSelect,
-    tooltip: 'Draw rectangular zones for antenna placement.',
+    tooltip: 'Draw coverage zones',
+    icon: Square,
   },
   {
     value: 'antenna',
     label: 'Add Antenna',
+    tooltip: 'Place individual antennas',
     icon: Antenna,
-    tooltip: 'Manually place individual antennas.',
   },
   {
     value: 'measure',
     label: 'Measure',
-    icon: Maximize,
-    tooltip: 'Measure distances on the map.',
+    tooltip: 'Measure distances',
+    icon: MapPin,
+  },
+  {
+    value: 'select',
+    label: 'Select',
+    tooltip: 'Select and move antennas',
+    icon: MousePointer,
+  },
+  {
+    value: 'multiselect',
+    label: 'Multi-Select',
+    tooltip: 'Select multiple antennas',
+    icon: Target,
   },
 ]
