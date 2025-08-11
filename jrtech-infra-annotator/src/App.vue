@@ -7,7 +7,6 @@ import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Separator } from '@/components/ui/separator'
-import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import {
   Accordion,
   AccordionContent,
@@ -15,33 +14,25 @@ import {
   AccordionTrigger,
 } from '@/components/ui/accordion'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
-
-import {
-  Square,
-  Ruler,
-  BoxSelect,
-  Antenna,
-  MousePointer,
-  Upload,
-  Download,
-  Trash2,
-  ArrowLeft,
-  ArrowRight,
-  Maximize,
-  ImagePlus,
-  MousePointer2,
-} from 'lucide-vue-next'
-import { Icon } from '@iconify/vue'
-import { useColorMode } from '@vueuse/core'
-
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import {
+  Antenna,
+  Upload,
+  Download,
+  Trash2,
+  ArrowLeft,
+  ArrowRight,
+  ImagePlus,
+} from 'lucide-vue-next'
+import { Icon } from '@iconify/vue'
+import { zoneColors, tools } from '@/utils/constants'
+import { useColorMode } from '@vueuse/core'
 
-// Pass { disableTransition: false } to enable transitions
 const mode = useColorMode()
 type Tool = 'perimeter' | 'scale' | 'zone' | 'antenna' | 'measure' | 'select' | 'multiselect'
 
@@ -52,16 +43,6 @@ const image = new Image()
 const uploadedImageUrl = ref<string | null>(null)
 
 const currentTool = ref<Tool>('perimeter')
-
-// Zone colors that alternate
-const zoneColors = [
-  { stroke: '#10b981', fill: 'rgba(16,185,129,0.08)', text: '#065f46' }, // green
-  { stroke: '#3b82f6', fill: 'rgba(59,130,246,0.08)', text: '#1e3a8a' }, // blue
-  { stroke: '#f59e0b', fill: 'rgba(245,158,11,0.08)', text: '#92400e' }, // amber
-  { stroke: '#ef4444', fill: 'rgba(239,68,68,0.08)', text: '#991b1b' }, // red
-  { stroke: '#8b5cf6', fill: 'rgba(139,92,246,0.08)', text: '#5b21b6' }, // violet
-  { stroke: '#06b6d4', fill: 'rgba(6,182,212,0.08)', text: '#0e7490' }, // cyan
-]
 
 // Data
 const perimeterPoints = reactive<{ x: number; y: number }[]>([])
@@ -660,91 +641,91 @@ function exportJSON() {
 
 // ---- Drawing ----
 function draw() {
-  console.log('Drawing...')
   if (!ctx.value || !canvasRef.value) return
+  const ctxLocal = ctx.value // TypeScript now knows ctxLocal is not null
   const canvas = canvasRef.value
-  ctx.value.clearRect(0, 0, canvas.width, canvas.height)
-  if (uploadedImageUrl.value) ctx.value.drawImage(image, 0, 0)
+  ctxLocal.clearRect(0, 0, canvas.width, canvas.height)
+  if (uploadedImageUrl.value) ctxLocal.drawImage(image, 0, 0)
 
   // perimeter
   if (perimeterPoints.length > 0) {
-    ctx.value.save()
-    ctx.value.lineWidth = 3
-    ctx.value.lineJoin = 'round'
-    ctx.value.lineCap = 'round'
-    ctx.value.strokeStyle = '#e11d48'
-    ctx.value.beginPath()
-    ctx.value.moveTo(perimeterPoints[0].x, perimeterPoints[0].y)
+    ctxLocal.save()
+    ctxLocal.lineWidth = 3
+    ctxLocal.lineJoin = 'round'
+    ctxLocal.lineCap = 'round'
+    ctxLocal.strokeStyle = '#e11d48'
+    ctxLocal.beginPath()
+    ctxLocal.moveTo(perimeterPoints[0].x, perimeterPoints[0].y)
     for (let i = 1; i < perimeterPoints.length; i++)
-      ctx.value.lineTo(perimeterPoints[i].x, perimeterPoints[i].y)
-    if (perimeterClosed.value) ctx.value.closePath()
-    ctx.value.stroke()
+      ctxLocal.lineTo(perimeterPoints[i].x, perimeterPoints[i].y)
+    if (perimeterClosed.value) ctxLocal.closePath()
+    ctxLocal.stroke()
 
     // perimeter preview line while drawing
     if (perimeterPreview && !perimeterClosed.value) {
-      ctx.value.setLineDash([4, 4])
-      ctx.value.lineWidth = 2
-      ctx.value.strokeStyle = '#f87171'
-      ctx.value.beginPath()
-      ctx.value.moveTo(
+      ctxLocal.setLineDash([4, 4])
+      ctxLocal.lineWidth = 2
+      ctxLocal.strokeStyle = '#f87171'
+      ctxLocal.beginPath()
+      ctxLocal.moveTo(
         perimeterPoints[perimeterPoints.length - 1].x,
         perimeterPoints[perimeterPoints.length - 1].y,
       )
-      ctx.value.lineTo(perimeterPreview.x, perimeterPreview.y)
-      ctx.value.stroke()
-      ctx.value.setLineDash([])
+      ctxLocal.lineTo(perimeterPreview.x, perimeterPreview.y)
+      ctxLocal.stroke()
+      ctxLocal.setLineDash([])
     }
 
     // points
     perimeterPoints.forEach((p, i) => {
-      ctx.value.beginPath()
-      ctx.value.arc(p.x, p.y, highlightFirstPoint && i === 0 ? 8 : 5, 0, Math.PI * 2)
-      ctx.value.fillStyle = highlightFirstPoint && i === 0 ? '#fbbf24' : '#e11d48'
-      ctx.value.fill()
+      ctxLocal.beginPath()
+      ctxLocal.arc(p.x, p.y, highlightFirstPoint && i === 0 ? 8 : 5, 0, Math.PI * 2)
+      ctxLocal.fillStyle = highlightFirstPoint && i === 0 ? '#fbbf24' : '#e11d48'
+      ctxLocal.fill()
       if (highlightFirstPoint && i === 0) {
-        ctx.value.strokeStyle = '#f59e0b'
-        ctx.value.lineWidth = 2
-        ctx.value.stroke()
+        ctxLocal.strokeStyle = '#f59e0b'
+        ctxLocal.lineWidth = 2
+        ctxLocal.stroke()
       }
     })
-    ctx.value.restore()
+    ctxLocal.restore()
   }
 
   // scale (final)
   if (scaleLine.start && scaleLine.end) {
-    ctx.value.save()
-    ctx.value.lineWidth = 3
-    ctx.value.strokeStyle = '#0ea5e9'
-    ctx.value.beginPath()
-    ctx.value.moveTo(scaleLine.start.x, scaleLine.start.y)
-    ctx.value.lineTo(scaleLine.end.x, scaleLine.end.y)
-    ctx.value.stroke()
-    ctx.value.fillStyle = '#0ea5e9'
-    ctx.value.font = '14px sans-serif'
+    ctxLocal.save()
+    ctxLocal.lineWidth = 3
+    ctxLocal.strokeStyle = '#0ea5e9'
+    ctxLocal.beginPath()
+    ctxLocal.moveTo(scaleLine.start.x, scaleLine.start.y)
+    ctxLocal.lineTo(scaleLine.end.x, scaleLine.end.y)
+    ctxLocal.stroke()
+    ctxLocal.fillStyle = '#0ea5e9'
+    ctxLocal.font = '14px sans-serif'
     const pxDist = Math.hypot(
       scaleLine.end.x - scaleLine.start.x,
       scaleLine.end.y - scaleLine.start.y,
     )
     const metersStr = scaleLine.meters ? `${scaleLine.meters} m` : '? m'
-    ctx.value.fillText(
+    ctxLocal.fillText(
       `${pxDist.toFixed(1)} px = ${metersStr}`,
       (scaleLine.start.x + scaleLine.end.x) / 2 + 6,
       (scaleLine.start.y + scaleLine.end.y) / 2 - 6,
     )
-    ctx.value.restore()
+    ctxLocal.restore()
   }
 
   // scale (preview while drawing)
   if (isDrawing && tempStart && tempEnd && currentTool.value === 'scale') {
-    ctx.value.save()
-    ctx.value.setLineDash([6, 4])
-    ctx.value.lineWidth = 2
-    ctx.value.strokeStyle = '#60a5fa'
-    ctx.value.beginPath()
-    ctx.value.moveTo(tempStart.x, tempStart.y)
-    ctx.value.lineTo(tempEnd.x, tempEnd.y)
-    ctx.value.stroke()
-    ctx.value.restore()
+    ctxLocal.save()
+    ctxLocal.setLineDash([6, 4])
+    ctxLocal.lineWidth = 2
+    ctxLocal.strokeStyle = '#60a5fa'
+    ctxLocal.beginPath()
+    ctxLocal.moveTo(tempStart.x, tempStart.y)
+    ctxLocal.lineTo(tempEnd.x, tempEnd.y)
+    ctxLocal.stroke()
+    ctxLocal.restore()
   }
 
   // zone preview while drawing
@@ -754,17 +735,17 @@ function draw() {
     const colorIndex = zones.length % zoneColors.length
     const colors = zoneColors[colorIndex]
 
-    ctx.value.save()
-    ctx.value.setLineDash([6, 4])
-    ctx.value.lineWidth = 2
-    ctx.value.strokeStyle = colors.stroke
-    ctx.value.strokeRect(tempStart.x, tempStart.y, w, h)
-    ctx.value.fillStyle = colors.fill
-    ctx.value.fillRect(tempStart.x, tempStart.y, w, h)
-    ctx.value.fillStyle = colors.text
-    ctx.value.font = '13px sans-serif'
-    ctx.value.fillText(`Zone ${zones.length + 1} (preview)`, tempStart.x + 6, tempStart.y + 16)
-    ctx.value.restore()
+    ctxLocal.save()
+    ctxLocal.setLineDash([6, 4])
+    ctxLocal.lineWidth = 2
+    ctxLocal.strokeStyle = colors.stroke
+    ctxLocal.strokeRect(tempStart.x, tempStart.y, w, h)
+    ctxLocal.fillStyle = colors.fill
+    ctxLocal.fillRect(tempStart.x, tempStart.y, w, h)
+    ctxLocal.fillStyle = colors.text
+    ctxLocal.font = '13px sans-serif'
+    ctxLocal.fillText(`Zone ${zones.length + 1} (preview)`, tempStart.x + 6, tempStart.y + 16)
+    ctxLocal.restore()
   }
 
   // zones (finalized)
@@ -777,79 +758,80 @@ function draw() {
     })
     const colors = zoneColors[z.colorIndex]
 
-    ctx.value.save()
+    ctxLocal.save()
 
     if (perimeterClosed.value && perimeterPoints.length >= 3) {
       // Clip zone drawing to perimeter
-      ctx.value.beginPath()
-      ctx.value.moveTo(perimeterPoints[0].x, perimeterPoints[0].y)
+      ctxLocal.beginPath()
+      ctxLocal.moveTo(perimeterPoints[0].x, perimeterPoints[0].y)
       for (let i = 1; i < perimeterPoints.length; i++) {
-        ctx.value.lineTo(perimeterPoints[i].x, perimeterPoints[i].y)
+        ctxLocal.lineTo(perimeterPoints[i].x, perimeterPoints[i].y)
       }
-      ctx.value.closePath()
-      ctx.value.clip()
+      ctxLocal.closePath()
+      ctxLocal.clip()
     }
 
-    ctx.value.lineWidth = 2
-    ctx.value.strokeStyle = colors.stroke
-    ctx.value.strokeRect(z.x, z.y, z.w, z.h)
-    ctx.value.fillStyle = colors.fill
-    ctx.value.fillRect(z.x, z.y, z.w, z.h)
+    ctxLocal.lineWidth = 2
+    ctxLocal.strokeStyle = colors.stroke
+    ctxLocal.strokeRect(z.x, z.y, z.w, z.h)
+    ctxLocal.fillStyle = colors.fill
+    ctxLocal.fillRect(z.x, z.y, z.w, z.h)
 
-    ctx.value.restore()
+    ctxLocal.restore()
 
     // Draw label outside of clipping
-    ctx.value.save()
-    ctx.value.fillStyle = colors.text
-    ctx.value.font = '13px sans-serif'
-    ctx.value.fillText(`${z.label} (max ${z.maxDist} m)`, z.x + 6, z.y + 16)
+    ctxLocal.save()
+    ctxLocal.fillStyle = colors.text
+    ctxLocal.font = '13px sans-serif'
+    ctxLocal.fillText(`${z.label} (max ${z.maxDist} m)`, z.x + 6, z.y + 16)
 
     // coverage circles
-    if (z.showCoverage && metersPerPx.value) {
+    if (z.showCoverage && metersPerPx.value !== null) {
+      const metersPerPxLocal = metersPerPx.value // TypeScript knows this is not null
       const zoneAntennas = antennas.filter((a) => a.zoneId === z.id)
       if (zoneAntennas.length > 0) {
-        ctx.value.fillStyle = 'rgba(59,130,246,0.12)'
-        ctx.value.strokeStyle = 'rgba(59,130,246,0.5)'
-        ctx.value.lineWidth = 1
+        ctxLocal.fillStyle = 'rgba(59,130,246,0.12)'
+        ctxLocal.strokeStyle = 'rgba(59,130,246,0.5)'
+        ctxLocal.lineWidth = 1
         zoneAntennas.forEach((a) => {
-          const radiusPx = z.coverageRadius / metersPerPx.value
-          ctx.value.beginPath()
-          ctx.value.arc(a.x, a.y, radiusPx, 0, Math.PI * 2)
-          ctx.value.fill()
-          ctx.value.stroke()
+          const radiusPx = z.coverageRadius / metersPerPxLocal
+          ctxLocal.beginPath()
+          ctxLocal.arc(a.x, a.y, radiusPx, 0, Math.PI * 2)
+          ctxLocal.fill()
+          ctxLocal.stroke()
         })
       }
     }
-    ctx.value.restore()
+    ctxLocal.restore()
   })
 
   // antennas
   antennas.forEach((a) => {
-    ctx.value.save()
-    ctx.value.beginPath()
-    ctx.value.arc(a.x, a.y, 5, 0, Math.PI * 2)
+    ctxLocal.save()
+    ctxLocal.beginPath()
+    ctxLocal.arc(a.x, a.y, 5, 0, Math.PI * 2)
 
     // Highlight selected antennas
     const isSelected = selectedAntennas.has(a.id)
-    ctx.value.fillStyle = isSelected ? '#facc15' : '#f97316'
-    ctx.value.fill()
-    ctx.value.lineWidth = isSelected ? 3 : 1
-    ctx.value.strokeStyle = isSelected ? '#eab308' : '#7c2d12'
-    ctx.value.stroke()
+    ctxLocal.fillStyle = isSelected ? '#facc15' : '#f97316'
+    ctxLocal.fill()
+    ctxLocal.lineWidth = isSelected ? 3 : 1
+    ctxLocal.strokeStyle = isSelected ? '#eab308' : '#7c2d12'
+    ctxLocal.stroke()
 
     // Add selection ring for better visibility
     if (isSelected) {
-      ctx.value.beginPath()
-      ctx.value.arc(a.x, a.y, 8, 0, Math.PI * 2)
-      ctx.value.lineWidth = 2
-      ctx.value.strokeStyle = '#eab308'
-      ctx.value.stroke()
+      ctxLocal.beginPath()
+      ctxLocal.arc(a.x, a.y, 8, 0, Math.PI * 2)
+      ctxLocal.lineWidth = 2
+      ctxLocal.strokeStyle = '#eab308'
+      ctxLocal.stroke()
     }
 
-    ctx.value.fillStyle = '#111827'
-    ctx.value.font = '12px sans-serif'
-    if (a.label) ctx.value.fillText(a.label, a.x + 8, a.y + 4)
-    ctx.value.restore()
+    ctxLocal.fillStyle = '#111827'
+    ctxLocal.font = '12px sans-serif'
+    if (a.label) ctxLocal.fillText(a.label, a.x + 8, a.y + 4)
+    ctxLocal.restore()
   })
 
   // Selection box for multi-select
@@ -859,7 +841,7 @@ function draw() {
     selectionBox.start &&
     selectionBox.end
   ) {
-    ctx.value.save()
+    ctxLocal.save()
     const startX = selectionBox.start.x
     const startY = selectionBox.start.y
     const endX = selectionBox.end.x
@@ -868,102 +850,56 @@ function draw() {
     const h = endY - startY
 
     // Selection box fill
-    ctx.value.fillStyle = 'rgba(59, 130, 246, 0.1)'
-    ctx.value.fillRect(startX, startY, w, h)
+    ctxLocal.fillStyle = 'rgba(59, 130, 246, 0.1)'
+    ctxLocal.fillRect(startX, startY, w, h)
 
     // Selection box border
-    ctx.value.strokeStyle = '#3b82f6'
-    ctx.value.lineWidth = 2
-    ctx.value.setLineDash([5, 5])
-    ctx.value.strokeRect(startX, startY, w, h)
-    ctx.value.restore()
+    ctxLocal.strokeStyle = '#3b82f6'
+    ctxLocal.lineWidth = 2
+    ctxLocal.setLineDash([5, 5])
+    ctxLocal.strokeRect(startX, startY, w, h)
+    ctxLocal.restore()
   }
 
   // finalized measures
   measures.forEach((m) => {
-    ctx.value.save()
-    ctx.value.lineWidth = 2
-    ctx.value.strokeStyle = '#7c3aed'
-    ctx.value.beginPath()
-    ctx.value.moveTo(m.start.x, m.start.y)
-    ctx.value.lineTo(m.end.x, m.end.y)
-    ctx.value.stroke()
+    ctxLocal.save()
+    ctxLocal.lineWidth = 2
+    ctxLocal.strokeStyle = '#7c3aed'
+    ctxLocal.beginPath()
+    ctxLocal.moveTo(m.start.x, m.start.y)
+    ctxLocal.lineTo(m.end.x, m.end.y)
+    ctxLocal.stroke()
     const dx = m.end.x - m.start.x
     const dy = m.end.y - m.start.y
     const meters = metersPerPx.value ? Math.hypot(dx, dy) * metersPerPx.value : null
-    ctx.value.fillStyle = '#7c3aed'
-    ctx.value.font = '13px sans-serif'
+    ctxLocal.fillStyle = '#7c3aed'
+    ctxLocal.font = '13px sans-serif'
     const label = meters ? `M${m.id}: ${meters.toFixed(2)} m` : `M${m.id}: ? m`
-    ctx.value.fillText(label, (m.start.x + m.end.x) / 2 + 6, (m.start.y + m.end.y) / 2 - 6)
-    ctx.value.restore()
+    ctxLocal.fillText(label, (m.start.x + m.end.x) / 2 + 6, (m.start.y + m.end.y) / 2 - 6)
+    ctxLocal.restore()
   })
 
   // measure preview while drawing
   if (isDrawing && tempStart && tempEnd && currentTool.value === 'measure') {
-    ctx.value.save()
-    ctx.value.setLineDash([6, 4])
-    ctx.value.lineWidth = 2
-    ctx.value.strokeStyle = '#a78bfa'
-    ctx.value.beginPath()
-    ctx.value.moveTo(tempStart.x, tempStart.y)
-    ctx.value.lineTo(tempEnd.x, tempEnd.y)
-    ctx.value.stroke()
+    ctxLocal.save()
+    ctxLocal.setLineDash([6, 4])
+    ctxLocal.lineWidth = 2
+    ctxLocal.strokeStyle = '#a78bfa'
+    ctxLocal.beginPath()
+    ctxLocal.moveTo(tempStart.x, tempStart.y)
+    ctxLocal.lineTo(tempEnd.x, tempEnd.y)
+    ctxLocal.stroke()
     const dx = tempEnd.x - tempStart.x
     const dy = tempEnd.y - tempStart.y
     const meters = metersPerPx.value ? Math.hypot(dx, dy) * metersPerPx.value : null
-    ctx.value.fillStyle = '#a78bfa'
-    ctx.value.font = '13px sans-serif'
+    ctxLocal.fillStyle = '#a78bfa'
+    ctxLocal.font = '13px sans-serif'
     const label = meters ? `${meters.toFixed(2)} m` : '? m'
-    ctx.value.fillText(label, (tempStart.x + tempEnd.x) / 2 + 6, (tempStart.y + tempEnd.y) / 2 - 6)
-    ctx.value.restore()
+    ctxLocal.fillText(label, (tempStart.x + tempEnd.x) / 2 + 6, (tempStart.y + tempEnd.y) / 2 - 6)
+    ctxLocal.restore()
   }
 }
-
-const tools = [
-  {
-    value: 'select',
-    label: 'Select / Move',
-    icon: MousePointer,
-    tooltip: 'Select and move individual antennas.',
-  },
-  {
-    value: 'multiselect',
-    label: 'Multi-Select',
-    icon: MousePointer2,
-    tooltip:
-      'Draw a rectangle to select multiple antennas. Drag to move them together. Delete or Escape to clear selection.',
-  },
-  {
-    value: 'perimeter',
-    label: 'Perimeter',
-    icon: Square,
-    tooltip: 'Draw the outer boundary of the area.',
-  },
-  {
-    value: 'scale',
-    label: 'Scale',
-    icon: Ruler,
-    tooltip: 'Draw a line to set the scale in meters.',
-  },
-  {
-    value: 'zone',
-    label: 'Zone',
-    icon: BoxSelect,
-    tooltip: 'Draw rectangular zones for antenna placement.',
-  },
-  {
-    value: 'antenna',
-    label: 'Add Antenna',
-    icon: Antenna,
-    tooltip: 'Manually place individual antennas.',
-  },
-  {
-    value: 'measure',
-    label: 'Measure',
-    icon: Maximize,
-    tooltip: 'Measure distances on the map.',
-  },
-]
 
 onMounted(() => {
   if (!canvasRef.value) return
@@ -1018,7 +954,7 @@ onBeforeUnmount(() => {
                 <TooltipTrigger as-child>
                   <button
                     type="button"
-                    @click="currentTool = tool.value"
+                    @click="currentTool = tool.value as Tool"
                     :class="[
                       'inline-flex items-center justify-start gap-3 h-11 px-4 rounded-md text-sm font-medium border shadow-sm cursor-pointer transition-colors',
                       currentTool === tool.value
