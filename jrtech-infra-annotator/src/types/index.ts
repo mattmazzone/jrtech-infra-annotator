@@ -1,3 +1,5 @@
+import type { Component } from 'vue'
+
 export type Tool = 'perimeter' | 'scale' | 'zone' | 'antenna' | 'measure' | 'select' | 'multiselect'
 
 export interface Point {
@@ -12,7 +14,8 @@ export interface Zone {
   w: number
   h: number
   label: string
-  maxDist: number
+  ceilingHeight: number
+  shelfHeight: number
   coverageRadius: number
   showCoverage: boolean
   colorIndex: number
@@ -47,4 +50,12 @@ export interface SelectionBox {
   start?: Point
   end?: Point
   active: boolean
+}
+
+export interface ToolConfig {
+  value: Tool
+  label: string
+  tooltip: string
+  icon: Component
+  disabled?: boolean
 }

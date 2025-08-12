@@ -212,7 +212,7 @@ export function useCanvasRenderer() {
       ctx.save()
       ctx.fillStyle = colors.text
       ctx.font = '13px sans-serif'
-      ctx.fillText(`${zone.label} (max ${zone.maxDist} m)`, zone.x + 6, zone.y + 16)
+      ctx.fillText(`${zone.label}`, zone.x + 6, zone.y + 16) // TODO: ADD celigingHeight and shelfHeight to label
 
       // Draw coverage circles
       if (zone.showCoverage && annotationsStore.metersPerPx !== null) {

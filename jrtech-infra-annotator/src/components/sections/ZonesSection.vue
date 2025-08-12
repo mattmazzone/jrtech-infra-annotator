@@ -36,21 +36,21 @@
             <Input :id="`zone-label-${zone.id}`" v-model="zone.label" @input="draw()" />
           </div>
           <div class="space-y-1">
-            <Label :for="`zone-maxdist-${zone.id}`">Max distance between antennas (m)</Label>
+            <Label :for="`zone-ceilingheight-${zone.id}`">Ceiling height (m)</Label>
             <Input
-              :id="`zone-maxdist-${zone.id}`"
+              :id="`zone-ceilingheight-${zone.id}`"
               type="number"
               step="0.1"
-              v-model.number="zone.maxDist"
+              v-model.number="zone.ceilingHeight"
             />
           </div>
           <div class="space-y-1">
-            <Label :for="`zone-covradius-${zone.id}`">Coverage radius per antenna (m)</Label>
+            <Label :for="`zone-shelfheight-${zone.id}`">Shelf height (m)</Label>
             <Input
-              :id="`zone-covradius-${zone.id}`"
+              :id="`zone-shelfheight-${zone.id}`"
               type="number"
               step="0.1"
-              v-model.number="zone.coverageRadius"
+              v-model.number="zone.shelfHeight"
               @input="draw()"
             />
           </div>

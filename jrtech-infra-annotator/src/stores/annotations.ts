@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { ref, reactive, computed } from 'vue'
+import { reactive, computed } from 'vue'
 import type { Point, Zone, Antenna, Measure, ScaleLine, Perimeter, SelectionBox } from '@/types'
 import { zoneColors } from '@/utils/constants'
 import {
@@ -45,6 +45,75 @@ export const useAnnotationsStore = defineStore('annotations', () => {
   const selectedAntennas = reactive<Set<number>>(new Set())
   const selectionBox = reactive<SelectionBox>({ active: false })
 
+  // Helper function to determine antenna placement rules based on zone parameters
+  const getAntennaPlacementRules = (ceilingHeight: number, shelfHeight: number) => {
+    if (ceilingHeight <= 3 && shelfHeight <= 2.1) {
+      const maxDistance = Math.max(10, 12) // Use the larger of horizontal/vertical
+      return {
+        maxHorizontalDistance: 10, // meters
+        maxVerticalDistance: 12, // meters
+        maxHorizontalWallDistance: 5, // meters
+        maxVerticalWallDistance: 6, // meters
+        coverageRadius: (maxDistance / 2) * 1.15, // meters - 1.15x radius
+      }
+    } else if (ceilingHeight >= 4 && shelfHeight <= 2.1) {
+      const maxDistance = Math.max(12, 14) // Use the larger of horizontal/vertical
+      return {
+        maxHorizontalDistance: 12, // meters
+        maxVerticalDistance: 14, // meters
+        maxHorizontalWallDistance: 6, // meters
+        maxVerticalWallDistance: 7, // meters
+        coverageRadius: (maxDistance / 2) * 1.15, // meters - 1.15x radius
+      }
+    }
+
+    // Default case (fallback)
+    const maxDistance = Math.max(10, 12)
+    return {
+      maxHorizontalDistance: 10,
+      maxVerticalDistance: 12,
+      maxHorizontalWallDistance: 5,
+      maxVerticalWallDistance: 6,
+      coverageRadius: (maxDistance / 2) * 1.15, // meters - 1.15x radius
+    }
+  }
+
+  // Helper function to check if a position respects distance rules from all existing antennas
+  const isPositionValid = (x: number, y: number, rules: any, metersPerPixel: number) => {
+    const maxHorizontalPx = rules.maxHorizontalDistance / metersPerPixel
+    const maxVerticalPx = rules.maxVerticalDistance / metersPerPixel
+
+    // Check distance from all existing antennas (in all zones)
+    for (const antenna of antennas) {
+      const horizontalDistance = Math.abs(x - antenna.x)
+      const verticalDistance = Math.abs(y - antenna.y)
+
+      if (horizontalDistance < maxHorizontalPx * 0.8 && verticalDistance < maxVerticalPx * 0.8) {
+        const euclideanDistance = Math.hypot(horizontalDistance, verticalDistance)
+        const minDistance = Math.min(maxHorizontalPx, maxVerticalPx) * 0.8
+        if (euclideanDistance < minDistance) {
+          return false
+        }
+      }
+    }
+    return true
+  }
+
+  // Helper function to check distance from perimeter walls
+  const isWithinWallDistanceLimit = (x: number, y: number, rules: any, metersPerPixel: number) => {
+    if (!perimeter.closed || perimeter.points.length < 3) return true
+
+    const maxHorizontalWallPx = rules.maxHorizontalWallDistance / metersPerPixel
+    const maxVerticalWallPx = rules.maxVerticalWallDistance / metersPerPixel
+
+    const distanceToPerimeter = getDistanceToPerimeter(x, y, perimeter.points, perimeter.closed)
+
+    // Use the more restrictive wall distance limit
+    const maxWallDistance = Math.min(maxHorizontalWallPx, maxVerticalWallPx)
+
+    return distanceToPerimeter <= maxWallDistance
+  }
+
   // Perimeter methods
   const addPerimeterPoint = (point: Point) => {
     perimeter.points.push(point)
@@ -69,9 +138,18 @@ export const useAnnotationsStore = defineStore('annotations', () => {
     scaleLine.meters = meters
   }
 
-  // Zone methods
-  const addZone = (x: number, y: number, w: number, h: number) => {
+  // Zone methods - Updated to use ceiling_height and shelf_height
+  const addZone = (
+    x: number,
+    y: number,
+    w: number,
+    h: number,
+    ceilingHeight = 3,
+    shelfHeight = 2.1,
+  ) => {
     const colorIndex = zones.length % zoneColors.length
+    const rules = getAntennaPlacementRules(ceilingHeight, shelfHeight)
+
     zones.push({
       id: zoneIdCounter++,
       x,
@@ -79,8 +157,9 @@ export const useAnnotationsStore = defineStore('annotations', () => {
       w,
       h,
       label: `Zone ${zones.length + 1}`,
-      maxDist: 3,
-      coverageRadius: 2,
+      ceilingHeight,
+      shelfHeight,
+      coverageRadius: rules.coverageRadius,
       showCoverage: false,
       colorIndex,
     })
@@ -103,6 +182,26 @@ export const useAnnotationsStore = defineStore('annotations', () => {
     const zone = zones.find((z) => z.id === zoneId)
     if (!zone) return
     zone.colorIndex = (zone.colorIndex + direction + zoneColors.length) % zoneColors.length
+  }
+
+  // Update zone parameters
+  const updateZoneParameters = (zoneId: number, ceilingHeight: number, shelfHeight: number) => {
+    const zone = zones.find((z) => z.id === zoneId)
+    if (zone) {
+      zone.ceilingHeight = ceilingHeight
+      zone.shelfHeight = shelfHeight
+      // Update coverage radius based on new parameters
+      const rules = getAntennaPlacementRules(ceilingHeight, shelfHeight)
+      zone.coverageRadius = rules.coverageRadius
+    }
+  }
+
+  // Toggle coverage display for a zone
+  const toggleZoneCoverage = (zoneId: number) => {
+    const zone = zones.find((z) => z.id === zoneId)
+    if (zone) {
+      zone.showCoverage = !zone.showCoverage
+    }
   }
 
   // Antenna methods
@@ -170,83 +269,72 @@ export const useAnnotationsStore = defineStore('annotations', () => {
     clearSelection()
   }
 
-  // Complex operations
+  // Complex operations - Updated with new logic
   const populateAntennasInZone = (zoneId: number) => {
     const zone = zones.find((z) => z.id === zoneId)
     if (!zone || !metersPerPx.value) return
 
-    // Remove existing antennas in this zone
+    // Get placement rules for this zone
+    const rules = getAntennaPlacementRules(zone.ceilingHeight, zone.shelfHeight)
+
+    // Remove existing antennas in this zone only
     for (let i = antennas.length - 1; i >= 0; i--) {
       if (antennas[i].zoneId === zoneId) {
         antennas.splice(i, 1)
       }
     }
 
-    const spacingPx = zone.maxDist / metersPerPx.value
-    const coverageRadiusPx = zone.coverageRadius / metersPerPx.value
+    // Convert distances to pixels - use conservative spacing
+    const spacingXPx = (rules.maxHorizontalDistance * 0.8) / metersPerPx.value
+    const spacingYPx = (rules.maxVerticalDistance * 0.8) / metersPerPx.value
 
-    // Generate candidate positions
-    const candidatePositions = []
-    const startX = zone.x + spacingPx / 2
-    const startY = zone.y + spacingPx / 2
+    // Simple grid generation
+    const startX = zone.x + spacingXPx / 2
+    const startY = zone.y + spacingYPx / 2
 
-    for (let x = startX; x < zone.x + zone.w; x += spacingPx) {
-      for (let y = startY; y < zone.y + zone.h; y += spacingPx) {
-        if (isPointInPerimeter(x, y, perimeter.points, perimeter.closed)) {
-          const distanceToPerimeter = getDistanceToPerimeter(
-            x,
-            y,
-            perimeter.points,
-            perimeter.closed,
-          )
-          if (distanceToPerimeter >= coverageRadiusPx * 0.7) {
-            const efficiency = calculateCoverageEfficiency(
-              x,
-              y,
-              coverageRadiusPx,
-              perimeter.points,
-              perimeter.closed,
-            )
-            if (efficiency > 0.7) {
-              candidatePositions.push({
-                x: Math.round(x),
-                y: Math.round(y),
-                efficiency,
-                distanceToPerimeter,
-              })
-            }
+    for (let x = startX; x < zone.x + zone.w; x += spacingXPx) {
+      for (let y = startY; y < zone.y + zone.h; y += spacingYPx) {
+        // Basic checks only
+        const roundedX = Math.round(x)
+        const roundedY = Math.round(y)
+
+        // Check if within perimeter
+        if (!isPointInPerimeter(roundedX, roundedY, perimeter.points, perimeter.closed)) {
+          continue
+        }
+
+        // Check minimum distance from perimeter walls
+        const distToWall = getDistanceToPerimeter(
+          roundedX,
+          roundedY,
+          perimeter.points,
+          perimeter.closed,
+        )
+        const minWallDistance =
+          Math.min(rules.maxHorizontalWallDistance, rules.maxVerticalWallDistance) /
+          metersPerPx.value
+
+        if (distToWall < minWallDistance * 0.5) {
+          continue
+        }
+
+        // Check distance from existing antennas (simple approach)
+        let tooClose = false
+        const minDistancePx = Math.min(spacingXPx, spacingYPx) * 0.7
+
+        for (const existingAntenna of antennas) {
+          const distance = Math.hypot(roundedX - existingAntenna.x, roundedY - existingAntenna.y)
+          if (distance < minDistancePx) {
+            tooClose = true
+            break
           }
         }
-      }
-    }
 
-    // Sort and select best positions
-    candidatePositions.sort((a, b) => {
-      const scoreA = a.efficiency * 0.7 + (a.distanceToPerimeter / coverageRadiusPx) * 0.3
-      const scoreB = b.efficiency * 0.7 + (b.distanceToPerimeter / coverageRadiusPx) * 0.3
-      return scoreB - scoreA
-    })
-
-    const selectedPositions = []
-    for (const candidate of candidatePositions) {
-      let tooClose = false
-      for (const selected of selectedPositions) {
-        const distance = Math.hypot(candidate.x - selected.x, candidate.y - selected.y)
-        if (distance < spacingPx * 0.8) {
-          tooClose = true
-          break
+        if (!tooClose) {
+          addAntenna(roundedX, roundedY, zoneId)
         }
       }
-      if (!tooClose) {
-        selectedPositions.push(candidate)
-      }
-      if (selectedPositions.length > 25) break
     }
-
-    // Create antennas
-    selectedPositions.forEach((pos) => {
-      addAntenna(pos.x, pos.y, zoneId)
-    })
   }
 
   // Export functionality
@@ -284,6 +372,8 @@ export const useAnnotationsStore = defineStore('annotations', () => {
     addZone,
     deleteZone,
     changeZoneColor,
+    updateZoneParameters,
+    toggleZoneCoverage,
 
     // Antennas
     addAntenna,
@@ -305,5 +395,8 @@ export const useAnnotationsStore = defineStore('annotations', () => {
 
     // Export
     exportData,
+
+    // Utility
+    getAntennaPlacementRules,
   }
 })

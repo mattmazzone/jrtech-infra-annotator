@@ -19,6 +19,7 @@
   },
   "dependencies": {
     "@iconify/vue": "^5.0.0",
+    "@tailwindcss/postcss": "^4.1.11",
     "@tailwindcss/vite": "^4.1.11",
     "@vueuse/core": "^13.6.0",
     "class-variance-authority": "^0.7.1",
