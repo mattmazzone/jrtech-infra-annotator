@@ -18,13 +18,15 @@ jobs:
           node-version: "24"
 
       - name: Install dependencies
+        working-directory: ./jrtech-infra-annotator
         run: npm install
 
       - name: Build Vue project
+        working-directory: ./jrtech-infra-annotator
         run: npm run build
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./dist
+          publish_dir: ./jrtech-infra-annotator/dist
