@@ -1,11 +1,15 @@
-export function exportPNG(canvas: HTMLCanvasElement, filename = 'annotated-map.png') {
+import { getTimestamp } from '@/utils/date'
+
+export function exportPNG(canvas: HTMLCanvasElement) {
+  const filename = `annotated-map-${getTimestamp()}.png`
   const a = document.createElement('a')
   a.download = filename
   a.href = canvas.toDataURL('image/png')
   a.click()
 }
 
-export function exportJSON(data: any, filename = 'annotations.json') {
+export function exportJSON(data: any) {
+  const filename = `annotations-${getTimestamp()}.json`
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')

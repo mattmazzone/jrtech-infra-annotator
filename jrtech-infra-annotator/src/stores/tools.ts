@@ -43,7 +43,7 @@ export const useToolsStore = defineStore('tools', () => {
     {
       value: 'measure',
       label: 'Measure',
-      tooltip: 'Measure distances',
+      tooltip: 'Measure distances, press "g" to toggle grid snapping',
       icon: MapPin,
       disabled: annotationsStore.scaleLine.meters === undefined, // Disable if scale line is not set
     },

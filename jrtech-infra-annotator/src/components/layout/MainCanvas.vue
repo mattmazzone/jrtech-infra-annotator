@@ -28,7 +28,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onBeforeUnmount } from 'vue'
+import { ref, onMounted, onBeforeUnmount, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import { Label } from '@/components/ui/label'
 import { ImagePlus, Upload } from 'lucide-vue-next'
@@ -39,6 +39,22 @@ import { useToolsStore } from '@/stores/tools'
 import { useCanvasRenderer } from '@/composables/useCanvasRenderer'
 import { setupCanvasEventListeners, resizeCanvasToImage } from '@/utils/canvas-helpers'
 import { isPointInRect } from '@/utils/geometry'
+import { useSettingsStore } from '@/stores/settings'
+import { GridSnapper } from '@/utils/grid-snapping'
+
+const settingsStore = useSettingsStore()
+const { gridSnap } = storeToRefs(settingsStore)
+
+const gridSnapper = new GridSnapper(gridSnap.value)
+
+// Watch for settings changes and update snapper
+watch(
+  gridSnap,
+  (newSettings) => {
+    gridSnapper.updateSettings(newSettings)
+  },
+  { deep: true },
+)
 
 const canvasRef = ref<HTMLCanvasElement | null>(null)
 
@@ -54,8 +70,7 @@ const { draw, setDrawingState, setPerimeterPreview } = useCanvasRenderer()
 // Get reactive refs from stores
 const { uploadedImageUrl, image } = storeToRefs(imageStore)
 const { currentTool } = storeToRefs(toolsStore)
-const { perimeter, scaleLine, zones, antennas, measures, selectedAntennas, selectionBox } =
-  storeToRefs(annotationsStore)
+const { perimeter, antennas, selectedAntennas, selectionBox } = storeToRefs(annotationsStore)
 
 // Drawing state
 let draggingAntenna: { idx: number; offsetX: number; offsetY: number } | null = null
@@ -172,7 +187,6 @@ function onPointerMove(e: PointerEvent) {
     draw()
   } else if (currentTool.value === 'multiselect') {
     if (selectionBox.value.active && selectionBox.value.start) {
-      // Update selection box
       annotationsStore.selectionBox = {
         start: selectionBox.value.start,
         end: { x, y },
@@ -180,7 +194,6 @@ function onPointerMove(e: PointerEvent) {
       }
       draw()
     } else if (draggingSelectedGroup) {
-      // Move all selected antennas
       const deltaX = x - draggingSelectedGroup.startX
       const deltaY = y - draggingSelectedGroup.startY
 
@@ -200,13 +213,16 @@ function onPointerMove(e: PointerEvent) {
       })
       draw()
     }
+  } else if (currentTool.value === 'measure' && tempStartPoint) {
+    // Apply grid snapping for measure tool
+    const snapResult = gridSnapper.snapLine(tempStartPoint.x, tempStartPoint.y, x, y)
+    setDrawingState(true, undefined, { x: snapResult.x, y: snapResult.y })
+    draw()
   } else if (
-    // Only update drawing state for drawing tools
+    // Only update drawing state for other drawing tools
     currentTool.value === 'scale' ||
-    currentTool.value === 'zone' ||
-    currentTool.value === 'measure'
+    currentTool.value === 'zone'
   ) {
-    // Update the end point for drawing tools
     setDrawingState(true, undefined, { x, y })
     draw()
   }
@@ -218,32 +234,30 @@ function onPointerUp(e: PointerEvent) {
   canvasRef.value.releasePointerCapture?.(e.pointerId)
 
   if (currentTool.value === 'scale') {
-    // Create the scale line from start to end point
     if (tempStartPoint) {
       annotationsStore.setScaleLine(tempStartPoint, { x, y })
     }
-    setDrawingState(false) // Reset drawing state
+    setDrawingState(false)
   } else if (currentTool.value === 'zone') {
-    // Use the locally stored start point instead of selectionBox
     if (tempStartPoint) {
       const w = x - tempStartPoint.x
       const h = y - tempStartPoint.y
       annotationsStore.addZone(tempStartPoint.x, tempStartPoint.y, w, h)
     }
-    setDrawingState(false) // Reset drawing state
+    setDrawingState(false)
   } else if (currentTool.value === 'measure') {
-    // Use the locally stored start point
     if (tempStartPoint) {
-      annotationsStore.addMeasure(tempStartPoint, { x, y })
+      // Apply final snapping when creating the measure
+      const snapResult = gridSnapper.snapLine(tempStartPoint.x, tempStartPoint.y, x, y)
+      annotationsStore.addMeasure(tempStartPoint, { x: snapResult.x, y: snapResult.y })
     }
-    setDrawingState(false) // Reset drawing state
+    setDrawingState(false)
   } else if (
     currentTool.value === 'multiselect' &&
     selectionBox.value.active &&
     selectionBox.value.start &&
     selectionBox.value.end
   ) {
-    // Complete selection
     const antennasInRect = antennas.value.filter((antenna) =>
       isPointInRect(antenna.x, antenna.y, selectionBox.value.start!, selectionBox.value.end!),
     )
@@ -251,7 +265,6 @@ function onPointerUp(e: PointerEvent) {
     annotationsStore.selectionBox = { active: false }
   }
 
-  // Reset temp state
   tempStartPoint = null
   draggingAntenna = null
   draggingSelectedGroup = null
@@ -267,7 +280,7 @@ function onDblClick() {
   }
 }
 
-// Keyboard shortcuts
+// Add keyboard shortcut for toggling grid snap
 function onKeyDown(e: KeyboardEvent) {
   if (currentTool.value === 'multiselect' && selectedAntennas.value.size > 0) {
     if (e.key === 'Delete' || e.key === 'Backspace') {
@@ -279,6 +292,12 @@ function onKeyDown(e: KeyboardEvent) {
       annotationsStore.clearSelection()
       draw()
     }
+  }
+
+  // Toggle grid snap with 'G' key
+  if (e.key === 'g' || e.key === 'G') {
+    e.preventDefault()
+    settingsStore.toggleGridSnap()
   }
 }
 
