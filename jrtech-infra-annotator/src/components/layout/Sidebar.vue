@@ -1,4 +1,6 @@
 <template>
+  <ImportExportDialog v-model:open="settings.openImportExportDialog" />
+
   <aside class="flex h-full flex-col border-r bg-background p-4 gap-4">
     <div class="flex h-16 items-center border-b px-2">
       <h1 class="text-xl font-semibold flex items-center gap-2">
@@ -30,11 +32,12 @@
 
       <div class="flex flex-col gap-2">
         <Separator class="my-1" />
-        <Button @click="handleExportPNG" variant="outline" class="justify-start">
-          <Download class="w-4 h-4 mr-2" /> Export as PNG
-        </Button>
-        <Button @click="handleExportJSON" variant="outline" class="justify-start">
-          <Download class="w-4 h-4 mr-2" /> Export as JSON
+        <Button
+          @click="settings.openImportExportDialog = true"
+          variant="outline"
+          class="justify-start"
+        >
+          <Download class="w-4 h-4 mr-2" /> Import/Export
         </Button>
         <DropdownMenu>
           <DropdownMenuTrigger as-child>
@@ -78,15 +81,15 @@ import { useColorMode } from '@vueuse/core'
 import ToolSelector from '@/components/tools/ToolSelector.vue'
 import { useImageStore } from '@/stores/image'
 import { useCanvasStore } from '@/stores/canvas'
-import { useAnnotationsStore } from '@/stores/annotations'
-import { exportPNG, exportJSON } from '@/utils/export'
+import { useSettingsStore } from '@/stores/settings'
 import { useCanvasRenderer } from '@/composables/useCanvasRenderer'
+import ImportExportDialog from '../ImportExportDialog.vue'
 
 const mode = useColorMode()
 const imageStore = useImageStore()
 const canvasStore = useCanvasStore()
-const annotationsStore = useAnnotationsStore()
-const { draw, setDrawingState, setPerimeterPreview } = useCanvasRenderer()
+const settings = useSettingsStore()
+const { draw } = useCanvasRenderer()
 
 const handleFileUpload = async (e: Event) => {
   const file = (e.target as HTMLInputElement).files?.[0]
@@ -102,16 +105,5 @@ const handleFileUpload = async (e: Event) => {
   } catch (error) {
     console.error('Failed to upload image:', error)
   }
-}
-
-const handleExportPNG = () => {
-  if (canvasStore.canvasRef) {
-    exportPNG(canvasStore.canvasRef)
-  }
-}
-
-const handleExportJSON = () => {
-  const data = annotationsStore.exportData()
-  exportJSON(data)
 }
 </script>

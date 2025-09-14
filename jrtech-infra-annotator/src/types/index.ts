@@ -59,3 +59,18 @@ export interface ToolConfig {
   icon: Component
   disabled?: boolean
 }
+
+export interface GridSnapSettings {
+  enabled: boolean
+  orthogonalSnapAngle: number // degrees - how close to horizontal/vertical before snapping
+  diagonalSnapAngle: number // degrees - for 45-degree snapping
+  enableDiagonalSnap: boolean
+}
+
+export interface ExportOptions {
+  includePerimeter: boolean
+  includeScale: boolean
+  includeZones: boolean
+  includeAntennas: boolean
+  includeMeasurements: boolean
+}

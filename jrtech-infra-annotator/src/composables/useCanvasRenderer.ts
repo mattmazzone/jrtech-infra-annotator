@@ -1,11 +1,13 @@
 import { useCanvasStore } from '@/stores/canvas'
 import { useImageStore } from '@/stores/image'
 import { useAnnotationsStore } from '@/stores/annotations'
+import { useSettingsStore } from '@/stores/settings'
 import { useToolsStore } from '@/stores/tools'
 import { zoneColors } from '@/utils/constants'
 
 export function useCanvasRenderer() {
   const canvasStore = useCanvasStore()
+  const settingsStore = useSettingsStore()
   const imageStore = useImageStore()
   const annotationsStore = useAnnotationsStore()
   const toolsStore = useToolsStore()
@@ -45,45 +47,46 @@ export function useCanvasRenderer() {
     highlightFirstPoint = highlight
   }
 
-  const draw = () => {
-    if (!canvasStore.ctx || !canvasStore.canvasRef) return
-
+  const draw = (exporting = false) => {
     const ctx = canvasStore.ctx
     const canvas = canvasStore.canvasRef
+    if (!ctx || !canvas) return
 
+    // Clear canvas
     ctx.clearRect(0, 0, canvas.width, canvas.height)
 
-    // Draw background image
+    // Draw background image if present
     if (imageStore.uploadedImageUrl) {
       ctx.drawImage(imageStore.image, 0, 0)
     }
 
-    // Draw perimeter
-    drawPerimeter(ctx)
+    if (exporting) {
+      // Only draw items enabled in export settings
+      const exportDrawSteps = [
+        { enabled: settingsStore.exportOptions.includePerimeter, fn: drawPerimeter },
+        { enabled: settingsStore.exportOptions.includeScale, fn: drawScale },
+        { enabled: settingsStore.exportOptions.includeZones, fn: drawZones },
+        { enabled: settingsStore.exportOptions.includeAntennas, fn: drawAntennas },
+        { enabled: settingsStore.exportOptions.includeMeasurements, fn: drawMeasurements },
+      ]
 
-    // Draw scale
-    drawScale(ctx)
+      exportDrawSteps.forEach((step) => step.enabled && step.fn(ctx))
+    } else {
+      // Full drawing flow while editing
+      const editDrawSteps = [
+        drawPerimeter,
+        drawScale,
+        drawTempScale,
+        drawZones,
+        drawTempZone,
+        drawAntennas,
+        drawSelectionBox,
+        drawMeasurements,
+        drawTempMeasure,
+      ]
 
-    // Draw temporary scale preview
-    drawTempScale(ctx)
-
-    // Draw zones
-    drawZones(ctx)
-
-    // Draw temporary zone preview
-    drawTempZone(ctx)
-
-    // Draw antennas
-    drawAntennas(ctx)
-
-    // Draw selection box
-    drawSelectionBox(ctx)
-
-    // Draw measurements
-    drawMeasurements(ctx)
-
-    // Draw temporary measure preview
-    drawTempMeasure(ctx)
+      editDrawSteps.forEach((fn) => fn(ctx))
+    }
   }
 
   const drawPerimeter = (ctx: CanvasRenderingContext2D) => {
