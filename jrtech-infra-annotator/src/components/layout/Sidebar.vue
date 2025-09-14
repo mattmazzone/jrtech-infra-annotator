@@ -36,6 +36,9 @@
         <Button @click="handleExportJSON" variant="outline" class="justify-start">
           <Download class="w-4 h-4 mr-2" /> Export as JSON
         </Button>
+        <Button @click="handleImportJSON" variant="outline" class="justify-start">
+          <Download class="w-4 h-4 mr-2" /> Import from JSON
+        </Button>
         <DropdownMenu>
           <DropdownMenuTrigger as-child>
             <Button variant="outline">
@@ -79,14 +82,14 @@ import ToolSelector from '@/components/tools/ToolSelector.vue'
 import { useImageStore } from '@/stores/image'
 import { useCanvasStore } from '@/stores/canvas'
 import { useAnnotationsStore } from '@/stores/annotations'
-import { exportPNG, exportJSON } from '@/utils/export'
+import { exportPNG, exportJSON, importJSON } from '@/utils/export'
 import { useCanvasRenderer } from '@/composables/useCanvasRenderer'
 
 const mode = useColorMode()
 const imageStore = useImageStore()
 const canvasStore = useCanvasStore()
 const annotationsStore = useAnnotationsStore()
-const { draw, setDrawingState, setPerimeterPreview } = useCanvasRenderer()
+const { draw } = useCanvasRenderer()
 
 const handleFileUpload = async (e: Event) => {
   const file = (e.target as HTMLInputElement).files?.[0]
@@ -113,5 +116,25 @@ const handleExportPNG = () => {
 const handleExportJSON = () => {
   const data = annotationsStore.exportData()
   exportJSON(data)
+}
+
+// Usage in your component
+const handleImportJSON = async () => {
+  try {
+    const data = await importJSON()
+    const success = annotationsStore.importData(data)
+
+    if (success) {
+      // Show success message
+      console.log('Data imported successfully')
+      draw()
+    } else {
+      // Show error message
+      console.error('Failed to import data')
+    }
+  } catch (error) {
+    console.error('Import failed:', error)
+    // Show error message to user
+  }
 }
 </script>

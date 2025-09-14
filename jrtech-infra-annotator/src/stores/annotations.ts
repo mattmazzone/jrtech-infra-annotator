@@ -348,6 +348,100 @@ export const useAnnotationsStore = defineStore('annotations', () => {
     }
   }
 
+  const importData = (data: any) => {
+    try {
+      // Validate the imported data structure
+      if (!data || typeof data !== 'object') {
+        throw new Error('Invalid data format')
+      }
+
+      // Clear existing data
+      clearPerimeter()
+      zones.length = 0
+      antennas.length = 0
+      measures.length = 0
+      clearSelection()
+
+      // Reset counters to avoid ID conflicts
+      let maxZoneId = 0
+      let maxAntennaId = 0
+      let maxMeasureId = 0
+
+      // Import perimeter
+      if (data.perimeter) {
+        if (Array.isArray(data.perimeter.points)) {
+          perimeter.points.push(...data.perimeter.points)
+        }
+        if (data.perimeter.closed) {
+          perimeter.closed = data.perimeter.closed
+        }
+      }
+
+      // Import scale
+      if (data.scale) {
+        if (data.scale.start) scaleLine.start = data.scale.start
+        if (data.scale.end) scaleLine.end = data.scale.end
+        if (data.scale.meters) scaleLine.meters = data.scale.meters
+      }
+
+      // Import zones
+      if (Array.isArray(data.zones)) {
+        data.zones.forEach((zone: any) => {
+          if (zone.id && zone.id > maxZoneId) maxZoneId = zone.id
+          zones.push({
+            id: zone.id || zoneIdCounter++,
+            x: zone.x || 0,
+            y: zone.y || 0,
+            w: zone.w || 100,
+            h: zone.h || 100,
+            label: zone.label || `Zone ${zones.length + 1}`,
+            ceilingHeight: zone.ceilingHeight || 3,
+            shelfHeight: zone.shelfHeight || 2.1,
+            coverageRadius: zone.coverageRadius || 6,
+            showCoverage: zone.showCoverage || false,
+            colorIndex: zone.colorIndex || 0,
+          })
+        })
+      }
+
+      // Import antennas
+      if (Array.isArray(data.antennas)) {
+        data.antennas.forEach((antenna: any) => {
+          if (antenna.id && antenna.id > maxAntennaId) maxAntennaId = antenna.id
+          antennas.push({
+            id: antenna.id || antennaIdCounter++,
+            x: antenna.x || 0,
+            y: antenna.y || 0,
+            label: antenna.label || `A${antennas.length + 1}`,
+            zoneId: antenna.zoneId,
+          })
+        })
+      }
+
+      // Import measures
+      if (Array.isArray(data.measures)) {
+        data.measures.forEach((measure: any) => {
+          if (measure.id && measure.id > maxMeasureId) maxMeasureId = measure.id
+          measures.push({
+            id: measure.id || measureIdCounter++,
+            start: measure.start || { x: 0, y: 0 },
+            end: measure.end || { x: 0, y: 0 },
+          })
+        })
+      }
+
+      // Update counters to avoid future ID conflicts
+      if (maxZoneId >= zoneIdCounter) zoneIdCounter = maxZoneId + 1
+      if (maxAntennaId >= antennaIdCounter) antennaIdCounter = maxAntennaId + 1
+      if (maxMeasureId >= measureIdCounter) measureIdCounter = maxMeasureId + 1
+
+      return true
+    } catch (error) {
+      console.error('Error importing data:', error)
+      return false
+    }
+  }
+
   return {
     // State
     perimeter,
@@ -393,8 +487,9 @@ export const useAnnotationsStore = defineStore('annotations', () => {
     // Complex operations
     populateAntennasInZone,
 
-    // Export
+    // Export/Import
     exportData,
+    importData,
 
     // Utility
     getAntennaPlacementRules,
