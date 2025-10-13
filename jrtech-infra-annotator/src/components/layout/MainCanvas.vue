@@ -81,9 +81,21 @@ let draggingSelectedGroup: {
 } | null = null
 let tempStartPoint: { x: number; y: number } | null = null
 
+// Pan state
+const isPanning = ref(false)
+const isSpacePressed = ref(false)
+let panStart: { x: number; y: number; panX: number; panY: number } | null = null
+
 // ID counters
 let zoneIdCounter = 1
 let measureIdCounter = 1
+
+// Cursor management
+function getCursor() {
+  if (isPanning.value) return 'grabbing'
+  if (isSpacePressed.value) return 'grab'
+  return 'default'
+}
 
 // Helper function to find antenna at position
 function hitTestAntenna(x: number, y: number) {
@@ -97,6 +109,23 @@ function hitTestAntenna(x: number, y: number) {
 // Pointer event handlers
 function onPointerDown(e: PointerEvent) {
   if (!canvasRef.value) return
+
+  // Check for pan gesture (Space key or middle mouse button)
+  const shouldPan = e.button === 1 || (e.button === 0 && isSpacePressed.value)
+
+  if (shouldPan) {
+    e.preventDefault()
+    isPanning.value = true
+    panStart = {
+      x: e.clientX,
+      y: e.clientY,
+      panX: canvasStore.panX,
+      panY: canvasStore.panY,
+    }
+    canvasRef.value.setPointerCapture?.(e.pointerId)
+    return
+  }
+
   const { x, y } = canvasStore.getCanvasCoords(e)
   canvasRef.value.setPointerCapture?.(e.pointerId)
 
@@ -161,6 +190,28 @@ function onPointerDown(e: PointerEvent) {
 
 function onPointerMove(e: PointerEvent) {
   if (!canvasRef.value) return
+
+  // Handle panning
+  if (isPanning.value && panStart) {
+    const deltaX = e.clientX - panStart.x
+    const deltaY = e.clientY - panStart.y
+
+    const rect = canvasRef.value.getBoundingClientRect()
+    const scaleX = canvasRef.value.width / rect.width
+    const scaleY = canvasRef.value.height / rect.height
+
+    canvasStore.panX = panStart.panX + deltaX * scaleX
+    canvasStore.panY = panStart.panY + deltaY * scaleY
+
+    // Apply bounds checking if image is loaded
+    if (image.value.complete) {
+      canvasStore.clampPan(image.value.width, image.value.height)
+    }
+
+    draw()
+    return
+  }
+
   const { x, y } = canvasStore.getCanvasCoords(e)
 
   if (
@@ -230,6 +281,15 @@ function onPointerMove(e: PointerEvent) {
 
 function onPointerUp(e: PointerEvent) {
   if (!canvasRef.value) return
+
+  // End panning
+  if (isPanning.value) {
+    isPanning.value = false
+    panStart = null
+    canvasRef.value.releasePointerCapture?.(e.pointerId)
+    return
+  }
+
   const { x, y } = canvasStore.getCanvasCoords(e)
   canvasRef.value.releasePointerCapture?.(e.pointerId)
 
@@ -272,6 +332,49 @@ function onPointerUp(e: PointerEvent) {
   draw()
 }
 
+// Wheel event for zooming and panning - optimized for trackpad
+function onWheel(e: WheelEvent) {
+  e.preventDefault()
+  if (!canvasRef.value) return
+
+  const rect = canvasRef.value.getBoundingClientRect()
+  const mouseX = e.clientX - rect.left
+  const mouseY = e.clientY - rect.top
+
+  // Detect if this is a pinch gesture (ctrlKey is set on Mac trackpad pinch)
+  const isPinch = e.ctrlKey
+
+  // Check if this is a two-finger pan (no ctrlKey, and typically has both deltaX and deltaY)
+  const isTwoFingerPan = !e.ctrlKey && !e.shiftKey
+
+  if (isTwoFingerPan && image.value.complete) {
+    // Two-finger pan on Mac trackpad
+    const scaleX = canvasRef.value.width / rect.width
+    const scaleY = canvasRef.value.height / rect.height
+
+    // Pan in the opposite direction of the scroll delta
+    const deltaX = -e.deltaX * scaleX
+    const deltaY = -e.deltaY * scaleY
+
+    canvasStore.pan(deltaX, deltaY, image.value.width, image.value.height)
+    draw()
+  } else if (isPinch) {
+    // Pinch zoom - use the deltaY directly for smooth zooming
+    const zoomDelta = 1 - e.deltaY * 0.01
+    const imageWidth = image.value.complete ? image.value.width : undefined
+    const imageHeight = image.value.complete ? image.value.height : undefined
+    canvasStore.zoomAt(mouseX, mouseY, zoomDelta, imageWidth, imageHeight)
+    draw()
+  } else {
+    // Regular scroll - smaller increments for smoother feel
+    const zoomDelta = e.deltaY < 0 ? 1.05 : 0.95
+    const imageWidth = image.value.complete ? image.value.width : undefined
+    const imageHeight = image.value.complete ? image.value.height : undefined
+    canvasStore.zoomAt(mouseX, mouseY, zoomDelta, imageWidth, imageHeight)
+    draw()
+  }
+}
+
 // Double click to close perimeter
 function onDblClick() {
   if (currentTool.value === 'perimeter' && perimeter.value.points.length >= 3) {
@@ -280,8 +383,14 @@ function onDblClick() {
   }
 }
 
-// Add keyboard shortcut for toggling grid snap
+// Keyboard event handlers
 function onKeyDown(e: KeyboardEvent) {
+  // Space key for panning
+  if (e.code === 'Space' && !isSpacePressed.value) {
+    e.preventDefault()
+    isSpacePressed.value = true
+  }
+
   if (currentTool.value === 'multiselect' && selectedAntennas.value.size > 0) {
     if (e.key === 'Delete' || e.key === 'Backspace') {
       e.preventDefault()
@@ -298,6 +407,34 @@ function onKeyDown(e: KeyboardEvent) {
   if (e.key === 'g' || e.key === 'G') {
     e.preventDefault()
     settingsStore.toggleGridSnap()
+  }
+
+  // Reset view with '0' key
+  if (e.key === '0') {
+    e.preventDefault()
+    canvasStore.resetView()
+    draw()
+  }
+
+  // Fit to view with 'F' key
+  if (e.key === 'f' || e.key === 'F') {
+    e.preventDefault()
+    if (image.value.complete) {
+      canvasStore.fitToView(image.value.width, image.value.height)
+      draw()
+    }
+  }
+}
+
+function onKeyUp(e: KeyboardEvent) {
+  if (e.code === 'Space') {
+    e.preventDefault()
+    isSpacePressed.value = false
+    // If we were panning when space was released, stop panning
+    if (isPanning.value) {
+      isPanning.value = false
+      panStart = null
+    }
   }
 }
 
@@ -327,14 +464,17 @@ onMounted(() => {
     onPointerMove,
     onPointerUp,
     onDblClick,
+    onWheel,
   })
 
   document.addEventListener('keydown', onKeyDown)
+  document.addEventListener('keyup', onKeyUp)
 
   // Cleanup function
   onBeforeUnmount(() => {
     cleanup()
     document.removeEventListener('keydown', onKeyDown)
+    document.removeEventListener('keyup', onKeyUp)
   })
 })
 
