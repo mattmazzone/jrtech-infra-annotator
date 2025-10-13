@@ -22,7 +22,7 @@
           id="file-upload"
           type="file"
           class="sr-only"
-          accept="image/png,image/jpeg"
+          accept="image/png,image/jpeg, application/pdf"
           @change="handleFileUpload"
         />
         <Separator class="my-1" />

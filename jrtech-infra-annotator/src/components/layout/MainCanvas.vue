@@ -6,7 +6,7 @@
     >
       <ImagePlus class="h-24 w-24 text-muted-foreground" />
       <h3 class="text-2xl font-bold tracking-tight">Ready to Annotate?</h3>
-      <p class="text-sm text-muted-foreground">Upload a PNG or JPEG map to get started.</p>
+      <p class="text-sm text-muted-foreground">Upload a PNG, JPEG, or PDF map to get started.</p>
       <Label
         for="file-upload"
         class="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground shadow hover:bg-primary/90 h-10 px-4 py-2 mt-4 cursor-pointer"
