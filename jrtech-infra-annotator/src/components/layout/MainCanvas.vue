@@ -22,6 +22,7 @@
       <canvas
         ref="canvasRef"
         style="max-width: 100%; max-height: 85vh; height: auto; touch-action: none; display: block"
+        :style="{ cursor: getCursor() }"
       ></canvas>
     </div>
   </main>

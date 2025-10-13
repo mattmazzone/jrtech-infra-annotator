@@ -7,7 +7,7 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker
 
 export const useImageStore = defineStore('image', () => {
   const uploadedImageUrl = ref<string | null>(null)
-  const image = reactive(new Image())
+  const image = ref(new Image())
 
   const uploadImage = async (file: File): Promise<void> => {
     if (file.type === 'application/pdf') {
@@ -22,9 +22,9 @@ export const useImageStore = defineStore('image', () => {
       const reader = new FileReader()
       reader.onload = () => {
         uploadedImageUrl.value = reader.result as string
-        image.src = uploadedImageUrl.value as string
-        image.onload = () => resolve()
-        image.onerror = reject
+        image.value.src = uploadedImageUrl.value as string
+        image.value.onload = () => resolve()
+        image.value.onerror = reject
       }
       reader.onerror = reject
       reader.readAsDataURL(file)
@@ -45,10 +45,10 @@ export const useImageStore = defineStore('image', () => {
     await page.render({ canvasContext: context, viewport, canvas }).promise
 
     uploadedImageUrl.value = canvas.toDataURL('image/png')
-    image.src = uploadedImageUrl.value
+    image.value.src = uploadedImageUrl.value
     await new Promise<void>((resolve, reject) => {
-      image.onload = () => resolve()
-      image.onerror = reject
+      image.value.onload = () => resolve()
+      image.value.onerror = reject
     })
   }
 
