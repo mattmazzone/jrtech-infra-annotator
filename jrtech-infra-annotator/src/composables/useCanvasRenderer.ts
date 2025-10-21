@@ -52,8 +52,10 @@ export function useCanvasRenderer() {
     const canvas = canvasStore.canvasRef
     if (!ctx || !canvas) return
 
-    // Clear canvas
+    // Clear canvas and apply current transform
+    ctx.setTransform(1, 0, 0, 1, 0, 0) // reset transform
     ctx.clearRect(0, 0, canvas.width, canvas.height)
+    canvasStore.applyTransform()
 
     // Draw background image if present
     if (imageStore.uploadedImageUrl) {

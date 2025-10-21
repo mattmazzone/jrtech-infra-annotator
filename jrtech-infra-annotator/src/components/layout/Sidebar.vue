@@ -16,13 +16,13 @@
           class="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 border border-input bg-background shadow-sm hover:bg-accent hover:text-accent-foreground h-10 px-4 py-2 cursor-pointer"
         >
           <Upload class="w-4 h-4 mr-2" />
-          {{ imageStore.uploadedImageUrl ? 'Change Image' : 'Upload Image' }}
+          {{ imageStore.uploadedImageUrl ? 'Change Map' : 'Upload Map' }}
         </Label>
         <input
           id="file-upload"
           type="file"
           class="sr-only"
-          accept="image/png,image/jpeg"
+          accept="image/png,image/jpeg, application/pdf"
           @change="handleFileUpload"
         />
         <Separator class="my-1" />
@@ -103,7 +103,7 @@ const handleFileUpload = async (e: Event) => {
       draw()
     }
   } catch (error) {
-    console.error('Failed to upload image:', error)
+    console.error('Failed to upload map:', error)
   }
 }
 </script>
