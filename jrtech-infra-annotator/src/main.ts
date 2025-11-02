@@ -12,7 +12,7 @@ const auth0 = createAuth0({
   domain: 'dev-ighikkkuy7psftc7.us.auth0.com',
   clientId: 'KTTYtiTjU78ca3BNgUCvY8VOZDVoD5vf',
   authorizationParams: {
-    redirect_uri: window.location.origin,
+    redirect_uri: window.location.origin + '/jrtech-infra-annotator/',
   },
   useRefreshTokens: true, // Enable refresh tokens
   cacheLocation: 'localstorage', // Persist auth state across refreshes
