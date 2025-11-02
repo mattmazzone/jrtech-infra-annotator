@@ -105,5 +105,6 @@ const handleFileUpload = async (e: Event) => {
     console.error('Failed to upload map:', error)
   }
 }
-const doLogout = () => logout({ logoutParams: { returnTo: window.location.origin } })
+const doLogout = () =>
+  logout({ logoutParams: { returnTo: window.location.origin + '/jrtech-infra-annotator/' } })
 </script>
