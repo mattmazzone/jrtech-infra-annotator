@@ -32,11 +32,7 @@
 
       <div class="flex flex-col gap-2">
         <Separator class="my-1" />
-        <Button
-          @click="settings.openImportExportDialog = true"
-          variant="outline"
-          class="justify-start"
-        >
+        <Button @click="settings.openImportExportDialog = true" variant="outline">
           <Download class="w-4 h-4 mr-2" /> Import/Export
         </Button>
         <DropdownMenu>
@@ -59,6 +55,7 @@
             <DropdownMenuItem @click="mode = 'auto'"> System </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
+        <Button variant="outline" @click="doLogout"> Logout </Button>
       </div>
     </div>
   </aside>
@@ -84,7 +81,9 @@ import { useCanvasStore } from '@/stores/canvas'
 import { useSettingsStore } from '@/stores/settings'
 import { useCanvasRenderer } from '@/composables/useCanvasRenderer'
 import ImportExportDialog from '../ImportExportDialog.vue'
+import { useAuth0 } from '@auth0/auth0-vue'
 
+const { logout, user } = useAuth0()
 const mode = useColorMode()
 const imageStore = useImageStore()
 const canvasStore = useCanvasStore()
@@ -106,4 +105,5 @@ const handleFileUpload = async (e: Event) => {
     console.error('Failed to upload map:', error)
   }
 }
+const doLogout = () => logout({ logoutParams: { returnTo: window.location.origin } })
 </script>
