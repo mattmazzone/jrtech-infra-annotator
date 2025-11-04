@@ -1,25 +1,27 @@
-<script setup>
+<script setup lang="ts">
+import { ref, watch, type Ref } from 'vue'
 import { useAuth0 } from '@auth0/auth0-vue'
-import { watch, ref } from 'vue'
-import { AlertDescription, AlertTitle } from '@/components/ui/alert'
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { MailWarning, LogOut } from 'lucide-vue-next'
 
 const { user, isAuthenticated, isLoading, logout } = useAuth0()
-const showVerificationWarning = ref(false)
-const countdown = ref(15)
-let countdownInterval = null
+
+const showVerificationWarning: Ref<boolean> = ref(false)
+const countdown: Ref<number> = ref(15)
+let countdownInterval: number | null = null
 
 watch([isAuthenticated, isLoading, user], () => {
   if (!isLoading.value && isAuthenticated.value && user.value) {
     if (!user.value.email_verified) {
       showVerificationWarning.value = true
-      countdown.value = 10
+      countdown.value = 15
 
-      countdownInterval = setInterval(() => {
+      // Start countdown
+      countdownInterval = window.setInterval(() => {
         countdown.value--
         if (countdown.value <= 0) {
-          clearInterval(countdownInterval)
+          clearInterval(countdownInterval!)
           handleLogout()
         }
       }, 1000)
@@ -27,7 +29,7 @@ watch([isAuthenticated, isLoading, user], () => {
   }
 })
 
-const handleLogout = () => {
+const handleLogout = (): void => {
   if (countdownInterval) clearInterval(countdownInterval)
   logout({ logoutParams: { returnTo: window.location.origin } })
 }
