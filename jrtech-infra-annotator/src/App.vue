@@ -31,7 +31,7 @@ watch([isAuthenticated, isLoading, user], () => {
 
 const handleLogout = (): void => {
   if (countdownInterval) clearInterval(countdownInterval)
-  logout({ logoutParams: { returnTo: window.location.origin } })
+  logout({ logoutParams: { returnTo: window.location.origin + '/jrtech-infra-annotator/' } })
 }
 </script>
 
